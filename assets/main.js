@@ -3,8 +3,8 @@
 // transitions, reveal on scroll and the phone clocks. The demos live in demos.js, quick
 // search in palette.js.
 
-import { initDemos } from './demos.js?v=e59dbe7ccb';
-import { initPalette, normalize } from './palette.js?v=e59dbe7ccb';
+import { initDemos } from './demos.js?v=f5901ba729';
+import { initPalette, normalize } from './palette.js?v=f5901ba729';
 
 window.__sqReady = true;
 const root = document.documentElement;

@@ -31,6 +31,69 @@ function toast(el, text, ms = 2400) {
   el._t = setTimeout(() => el.classList.remove('is-shown'), ms);
 }
 
+// MARK: CleanSpace — scan, flag duplicates, clean.
+
+function cleanspace(device, d) {
+  const TOTAL = 494.38, USED = 454.25, SAVE = 8.6;
+  const btn = $(device, '[data-cs-action]');
+  const ring = $(device, '[data-cs-ring]');
+  const pct = $(device, '[data-cs-pct]');
+  const used = $(device, '[data-cs-used]');
+  const grid = $(device, '[data-cs-photos]');
+  const note = $(device, '[data-cs-toast]');
+  const stat = (k) => $(device, `[data-cs-stat="${k}"]`);
+  const photos = $$(grid, '.cs-photo');
+  const dupes = photos.filter((p) => 'dupe' in p.dataset);
+  let state = 'idle';
+
+  const set = (s, label) => { state = s; btn.dataset.state = s; btn.textContent = label; };
+  const showUsed = (gb) => {
+    used.textContent = `${gb.toFixed(2)} GB`;
+    pct.textContent = `${Math.round((gb / TOTAL) * 100)}%`;
+    ring.style.setProperty('--v', (gb / TOTAL).toFixed(4));
+  };
+
+  function reset() {
+    photos.forEach((p) => p.classList.remove('is-flagged', 'is-gone', 'is-removed'));
+    ['save', 'dupes', 'videos'].forEach((k) => { stat(k).textContent = '—'; });
+    showUsed(USED);
+  }
+
+  async function scan() {
+    set('scanning', d.scanning);
+    grid.classList.add('is-scanning');
+    await Promise.all([
+      tween(0, 109, 1600, (v) => { stat('dupes').textContent = Math.round(v); }),
+      tween(0, 70, 1500, (v) => { stat('videos').textContent = Math.round(v); }),
+      tween(0, SAVE, 1700, (v) => { stat('save').textContent = `${v.toFixed(1)} GB`; }),
+    ]);
+    grid.classList.remove('is-scanning');
+    for (const p of dupes) { p.classList.add('is-flagged'); await wait(90); }
+    set('found', fmt(d.clean, { size: isolate(`${SAVE} GB`) }));
+  }
+
+  async function clean() {
+    set('cleaning', d.scanning);
+    dupes.forEach((p) => p.classList.add('is-gone'));
+    await wait(420);
+    dupes.forEach((p) => p.classList.add('is-removed'));
+    await Promise.all([
+      tween(USED, USED - SAVE, 1100, showUsed),
+      tween(SAVE, 0, 900, (v) => { stat('save').textContent = `${v.toFixed(1)} GB`; }),
+      tween(109, 0, 900, (v) => { stat('dupes').textContent = Math.round(v); }),
+      tween(70, 0, 900, (v) => { stat('videos').textContent = Math.round(v); }),
+    ]);
+    toast(note, fmt(d.done, { size: isolate(`${SAVE} GB`) }));
+    set('done', d.again);
+  }
+
+  btn.addEventListener('click', () => {
+    if (state === 'idle') scan();
+    else if (state === 'found') clean();
+    else if (state === 'done') { reset(); scan(); }
+  });
+}
+
 // MARK: Coco English — flip a word card, rate yourself; "Again" sends it to the back.
 
 function cocoenglish(device, d, cards) {
@@ -277,6 +340,7 @@ export function initDemos() {
   if (!holder) return;
   const data = JSON.parse(holder.textContent);
   const start = {
+    cleanspace: (el) => cleanspace(el, data.demo.cleanspace),
     cocoenglish: (el) => cocoenglish(el, data.demo.cocoenglish, data.cards),
     puzzlebox: (el) => puzzlebox(el, data.demo.puzzlebox),
   };
